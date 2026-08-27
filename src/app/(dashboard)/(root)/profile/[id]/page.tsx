@@ -1,0 +1,267 @@
+import ArticleCard from '@/components/article/articleCard'
+import ArticleForm from '@/components/article/articleForm'
+import EventCard from '@/components/event/eventCard'
+import EventForm from '@/components/event/eventForm'
+import CommentPostHome from '@/components/post/commentPostHome'
+import CommentPostInHome from '@/components/post/commentPostInHome'
+import POSTFORM from '@/components/post/postform'
+import Posthome from '@/components/post/posthome'
+import ProfileHeader from '@/components/profile/ProfileHeader'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import VisitBtnPOSTAll from '@/components/visit/visitPost'
+import { fetchPostcarosuleByID } from '@/lib/actions/user.carousel'
+import {
+  CheckFollow,
+  getTotalFollowers,
+  getTotalFollowing,
+} from '@/lib/actions/user.follow'
+import { fetchUserProfileByID } from '@/lib/actions/user.post'
+import { TotalVisit1, TotalVisitEvent } from '@/lib/actions/user.visit'
+import { getCurrentUser } from '@/lib/session'
+import { Divider, ScrollShadow } from '@nextui-org/react'
+import { formatDistanceToNow } from 'date-fns'
+import { th } from 'date-fns/locale'
+import { Metadata } from 'next'
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import ContentFollow from '../../../../../components/follow/contentFollow'
+import React from 'react'
+
+export const metadata: Metadata = {
+  title: 'Profile',
+}
+
+export default async function Page({ params }: { params: { id: string } }) {
+  if (!params.id) return null
+
+  const user = await getCurrentUser()
+  if (!user) return null
+
+  //Todo: ตรวจสอบ user พื่อดึงข้อมูลผู้ใช้มาแสดงผล โดยตัวแปร user จะดึงค่า session จาก getCurrentUser เพื่อใช้ในการยืนยันว่าผู้ใช้ที่เข้าถึง Profile Page เป็นเจ้าของหรือไม่
+  //* หากเป็นเจ้าของ จะสามารถเข้าถึงหน้าต่างบางอย่างได้ เช่น ตั้งค่า และอื่นๆ
+
+  const userInfo = await fetchUserProfileByID(params.id)
+  if (!userInfo) redirect('/')
+
+  //Todo: โดยใช้ Params.id ในการยืนยันจากฐานข้อมูล หากข้อมูลตรงกัน จะทำการแสดงเนื้อหาต่างๆที่โค้ดด้านล่าง
+  // TODO:แสดงการติดตาม
+  const userfollow = await getTotalFollowers(params.id)
+  const userfollowing = await getTotalFollowing(params.id)
+  const checkFollower = await CheckFollow(params.id, user.id)
+
+  const otherPost = await fetchPostcarosuleByID(params.id)
+
+  if (!userInfo) redirect('/sign-in') // ! และถ้าหากว่าไม่มี Prarams.id จะทำการ redireact ไปที่หน้า Sign-ins
+
+  return (
+    <div className="flex items-center justify-center  ">
+      {userInfo.map((Account, index) => (
+        <div
+          key={index}
+          className=" mb-[590px] flex  h-32 flex-col gap-0 animate-in "
+        >
+          <div>
+            <div
+              className=" 
+            
+            inset-x-0  left-[32px]  w-full   place-items-start  px-3 pt-3 xl:fixed xl:h-full 
+            xl:w-96
+            "
+            >
+              <ProfileHeader
+                key={Account.id}
+                accountId={Account.id}
+                authUserId={user.id}
+                name={Account.name || ''}
+                nickname={Account.nickname || ''}
+                image={Account.image || ' '}
+                bio={Account.bio || ''}
+                totalFollower={userfollow || 0}
+                totalFollowing={userfollowing}
+                isFollow={checkFollower}
+                contact={{
+                  facebook: Account.Facebook || '',
+                  ig: Account.IG || '',
+                  twitter: Account.Twitter || '',
+                  tiktok: Account.Tiktok || '',
+                }}
+                article={{
+                  id: params.id,
+                }}
+                event={{
+                  id: params.id,
+                }}
+              />
+            </div>
+          </div>
+          <div className="">
+            <div className="mt-8 w-[690px]">
+              <div className="relative place-items-center justify-center text-center ">
+                <Tabs defaultValue="article">
+                  <TabsList className="">
+                    <TabsTrigger value="POST">โพสต์</TabsTrigger>
+                    <TabsTrigger value="article"> บทความ</TabsTrigger>
+                    <TabsTrigger value="event"> กิจกรรม</TabsTrigger>
+                    <TabsTrigger value="follow"> การติดตาม</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="POST">
+                    <div className="mb-3 mt-5 grid place-items-center items-center justify-center p-3 text-center">
+                      {userInfo?.map((Account, index) => (
+                        <div key={index}>
+                          <POSTFORM
+                            key={Account.id}
+                            accountId={Account.id}
+                            authUserId={user?.id || ''}
+                          />
+                        </div>
+                      ))}
+
+                      {otherPost.map(async (post) => (
+                        <>
+                          <div className="w-full rounded-lg p-3 shadow-xl">
+                            <div className="">
+                              <Posthome
+                                key={post?.id}
+                                id={post?.id}
+                                content={post.content}
+                                ImagePost={post?.ImagePost || ''}
+                                tag={post.tag}
+                                currentId={user?.id || ''}
+                                authorId={post.authorId}
+                                author={post.author}
+                                comments={post.comments}
+                                createAt={formatDistanceToNow(
+                                  new Date(post.createdAt),
+                                  { locale: th, addSuffix: true }
+                                )}
+                              />
+                            </div>
+                            <div className="left-3 mt-7 ">
+                              <CommentPostInHome
+                                postId={post.id}
+                                currentUserImage={user?.image || ''}
+                                currentUserId={user?.id || ''}
+                              />
+                            </div>
+                            <div className="mb-10 mt-10">
+                              {post.comments
+                                .slice(0, 4)
+                                .map((comments: any) => (
+                                  <>
+                                    <CommentPostHome
+                                      key={comments.id}
+                                      id={comments.id}
+                                      comments={comments?.text}
+                                      postId={comments.articleId}
+                                      current={
+                                        user || {
+                                          id: '',
+                                          name: '',
+                                          image: '',
+                                        }
+                                      }
+                                      authorId={comments.authorId}
+                                      createAt={new Date(
+                                        comments.createdAt
+                                      ).toLocaleString()}
+                                      author={
+                                        comments.author || {
+                                          id: '',
+                                          name: '',
+                                          image: '',
+                                        }
+                                      }
+                                      reply={comments.Reply}
+                                      isComment
+                                      isReply
+                                    />
+                                  </>
+                                ))}
+                              <Link href={`/post/${post.id}`}>
+                                <VisitBtnPOSTAll
+                                  id={post.id}
+                                  userId={user?.id || ''}
+                                />
+                              </Link>
+                            </div>
+                          </div>
+                        </>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="article">
+                    <div className="place-items-center text-center">
+                      <ArticleForm
+                        key={Account.id}
+                        accountId={Account.id}
+                        authUserId={user.id}
+                      />
+                    </div>
+                    {Account.Article.map(async (ArticleBy) => (
+                      <div key={ArticleBy.id}>
+                        <ArticleCard
+                          key={ArticleBy.id}
+                          id={ArticleBy.id}
+                          title={ArticleBy.title}
+                          articleContent={ArticleBy.articleContent}
+                          ArticleImage={ArticleBy.ArticleImage || ''}
+                          tag={ArticleBy.tag}
+                          authorId={ArticleBy.authorId}
+                          author={ArticleBy.author}
+                          comments={ArticleBy.comment}
+                          createAt={new Date(
+                            ArticleBy.createAt
+                          ).toLocaleString()}
+                          totalVisit={await TotalVisit1(ArticleBy.id)}
+                        />
+                      </div>
+                    ))}
+                  </TabsContent>
+                  <TabsContent value="event">
+                    <div className="place-items-center text-center">
+                      <EventForm
+                        key={Account.id}
+                        accountId={Account.id}
+                        authUserId={user.id}
+                      />
+                      {Account.Event.map(async (Event) => (
+                        <EventCard
+                          key={Event.id}
+                          id={Event.id}
+                          title={Event.title}
+                          articleContent={Event.eventContent}
+                          ArticleImage={Event.eventImage}
+                          tag={Event.tag}
+                          authorId={Event.authorId}
+                          author={Event.author}
+                          comments={Event.comment}
+                          createAt={new Date(Event.createAt).toLocaleString()}
+                          totalVisit={await TotalVisitEvent(Event.id)}
+                          eventlocation={null}
+                          eventstartTime={null}
+                          eventparticipants={null}
+                          registerCount={0}
+                        />
+                      ))}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="follow">
+                    <div className="place-items-center text-center">
+                      <ContentFollow
+                        id={Account.id}
+                        checkFollow={checkFollower}
+                        isFollowing={user.id}
+                        authUserId={user.id}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
